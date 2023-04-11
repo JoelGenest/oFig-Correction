@@ -1,0 +1,41 @@
+<%- include('./partials/header') %>
+<%- include('./partials/leftMenu') %>
+
+
+      <div class="col-lg-9">
+
+        <div class="row">
+          <% for(const figurine of figurines) { %>
+          <div class="col-lg-4 col-md-6 mb-4">
+            <div class="card h-100">
+              <a href="/article/<%= figurine.id %>">
+                <img class="card-img-top" src="/images/<%= figurine.name.toLowerCase() %>.png" alt="">
+                <div class="badge-category badge badge-pill badge-<%= figurine.category.toLowerCase() %>"><%= figurine.category %></div>
+              </a>
+              <div class="card-body">
+                <h4 class="card-title">
+                  <a href="/article/<%= figurine.id %>"><%= figurine.name %></a>
+                </h4>
+                <h5>$<%= figurine.price %></h5>
+                <p class="card-text"><%= figurine.description %></p>
+              </div>
+              <div class="card-footer">
+                <small class="text-muted"><%- '★★★★★☆☆☆☆☆'.slice(5 - figurine.avg_note, 10  - figurine.avg_note).split('').join(' ') %></small>
+                <a href="/bookmarks/add/<%= figurine.id %>" class="link-add-bookmarks">+ Ajouter aux favoris</a>
+              </div>
+            </div>
+          </div>
+          <% } %>
+        </div>
+        <!-- /.row -->
+
+      </div>
+      <!-- /.col-lg-9 -->
+
+    </div>
+    <!-- /.row -->
+
+  </div>
+  <!-- /.container -->
+
+<%- include('./partials/footer') %>

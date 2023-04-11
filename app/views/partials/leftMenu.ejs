@@ -1,0 +1,21 @@
+  <!-- Page Content -->
+  <div class="container container-main">
+
+    <div class="row">
+
+      <div class="col-lg-3">
+
+        <h1 class="my-4">O'Fig</h1>
+        
+        <h5>Catégories</h5>
+        <div class="list-group">
+          <% for(const category of categories) { %>
+          <a class="list-group-item d-flex justify-content-between align-items-center" href="/category/<%- category.name.toLowerCase() %>">
+              Les <%- category.name.toLowerCase().slice(-2) == 'al' ? category.name.toLowerCase().slice(0, -1) + 'ux' : category.name.toLowerCase() + 's' %>
+            <span class="badge badge-primary badge-pill"><%= category.qty %></span>
+          </a>
+          <% } %>
+        </div>
+
+      </div>
+      <!-- /.col-lg-3 -->

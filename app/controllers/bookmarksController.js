@@ -25,7 +25,7 @@ const bookmarksController = {
     res.redirect('/bookmarks');
   },
 
-  deleteBookmarks: async (req, res) => {
+  deleteBookmarks: (req, res) => {
     indexToDelete = req.session.bookmarks.findIndex(figurine => figurine.id == req.params.id);
     req.session.bookmarks.splice(indexToDelete, 1);
     res.redirect('/bookmarks');

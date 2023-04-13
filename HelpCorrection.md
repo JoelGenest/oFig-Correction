@@ -49,7 +49,7 @@ PORT=3000
 Créer dossier `views` dans le dossier `app` et y deplacer les `.ejs`
 faire les reglage `index.js` → `ejs` / `views`
 
-- index.js
+ - index.js
 ```js
 require('dotenv').config();
 const express = require('express');
@@ -203,19 +203,9 @@ module.exports = mainController;
 
 - bookmarksController.js
 ```js
-const mainController = {
-
-  homePage: (req, res) => {
-    res.render('home');
+bookmarksPage: (req, res) => {
+    res.render('bookmarks');
   },
-
-  articlePage: (req, res) => {
-    res.render('article');
-  }
-
-};
-
-module.exports = mainController;
 ```
 
 _______
@@ -469,4 +459,291 @@ Implémenter une nouvelle route /bookmarks/delete/:id, qui supprime la figurine 
 ```
 ### Bonus 1 :
 
+Intgrer les reviews dans la page article, dans la modale prévue à cet effet.
 
+```js
+//dataMapper.js
+getReviewByArticle: async (id) => {
+    const query = {
+      text:`
+      SELECT *
+      FROM review
+      WHERE figurine_id = $1
+      `,
+      values: [Number(id)]
+    }
+    
+    const {rows: reviews} = await client.query(query)
+    return reviews
+  }
+```
+
+```js
+//mainController.js
+articlePage: async (req, res) => {
+    
+    try {
+      const figurine = await dataMapper.getOneFigurine(req.params.id)
+      const reviews = await dataMapper.getReviewByArticle(req.params.id)
+
+      res.render('article', {figurine, reviews});
+    }catch(error) {
+      console.log(error)
+      res.status(500).send(error);
+    }
+  }
+```
+
+```html
+<!-- article.ejs -->
+<% for(const review of reviews ) { %>
+  <section>
+    <h5><%= review.title %> &nbsp; <small class="text-muted">
+      <%- ['&#9733;','&#9733;','&#9733;','&#9733;','&#9733;','&#9734;','&#9734;','&#9734;','&#9734;','&#9734;'].slice(5 - review.note, 10 - review.note).join('') %>
+      </small></h5>
+    <p class="review-author">par <%= review.author %></p>
+    <p><%= review.message %></p>
+  </section>
+  
+  <hr>
+<% } %>
+```
+
+### Bonus 2 :
+
+Écrire une requête dans dataMapper pour récupérer le nombre de figurines de chaque catégorie.
+
+```js
+// dataMapper.js
+getCategoryStats: async () => {
+    const query = {
+      text: `
+      SELECT category AS name, COUNT(id) AS qty
+      FROM figurine
+      GROUP BY category
+      ORDER BY name ASC;
+      `,
+    }
+    const {rows: categories} = await client.query(query)
+    console.log(categories)
+    return categories
+  }
+```
+
+```html
+<!-- leftMenu.ejs -->
+<% for( const category of categories ) { %>
+  <a class="list-group-item d-flex justify-content-between align-items-center" href="/category/<%- category.name.toLowerCase() %>">
+    Les <%- category.name.toLowerCase().slice(-2) == 'al' ? category.name.slice(0, -1).toLowerCase() + 'ux' : category.name.toLowerCase() + 's' %>
+    <span class="badge badge-primary badge-pill"><%= category.qty %></span>
+  </a>
+<% } %>
+```
+
+Appeler cette requête dans toutes les pages ou on en a besoin !
+
+```js
+// mainController.js
+const mainController = {
+
+  homePage: async (req, res) => {
+    try {
+      const categories = await dataMapper.getCategoryStats()
+      const figurines = await dataMapper.getAllFigurines()
+      res.render('home', {figurines, categories});
+    }catch(error) {
+      console.log(error)
+      res.status(500).send(error);
+    }
+  },
+
+  articlePage: async (req, res) => {
+    
+    try {
+      const categories = await dataMapper.getCategoryStats()
+      const figurine = await dataMapper.getOneFigurine(req.params.id)
+      const reviews = await dataMapper.getReviewByArticle(req.params.id)
+
+      res.render('article', {figurine, categories, reviews});
+    }catch(error) {
+      console.log(error)
+      res.status(500).send(error);
+    }
+  }
+
+};
+```
+Chaque lien doit envoyer vers une page qui ne liste que les figurines de la catégorie cliquée. Tout est dit !
+
+```js
+// router.js
+router.get('/category/:category', mainController.categoryPage);
+```
+
+```js
+//dataMapper.js
+getFigurinesByCategory: async (category) => {
+    const query = {
+      text: `
+      SELECT * FROM figurine WHERE LOWER(category) = $1;
+      `,
+      values: [category]
+    }
+    const {rows: figurines} = await client.query(query)
+    //console.log(figurines)
+    return figurines
+  },
+```
+
+```js
+//mainController.js
+categoryPage: async (req, res) => {
+    try {
+      const categories = await dataMapper.getCategoryStats()
+      const figurines = await dataMapper.getFigurinesByCategory(req.params.category)
+
+      res.render('home', {figurines, categories});
+    }catch(error) {
+      console.log(error)
+      res.status(500).send(error);
+    }
+  }
+```
+
+### Bonus DE LA MORT :
+Trouver un moyen de calculer et d'afficher la note globale de chaque figurine à partir des notes des reviews associés. ★ (étoile pleine) : U+2605 ☆ (étoile vide) : U+2606
+
+```js
+// dataMapper.js
+const dataMapper = {
+  getAllFigurinesWithNote: async () => {
+    const query = `
+    SELECT f.*, ROUND(AVG(r.note)) AS note
+    FROM figurine AS f
+    LEFT JOIN review AS r ON r.figurine_id = f.id
+    GROUP BY f.id;
+    `
+    const {rows: figurines} = await client.query(query)
+    return figurines
+  },
+  
+  getFigurinesByCategoryWithNote: async (category) => {
+    const query = {
+      text: `
+      SELECT f.*, ROUND(AVG(r.note)) AS note
+      FROM figurine AS f
+      LEFT JOIN review AS r ON r.figurine_id = f.id
+      WHERE LOWER(f.category) = $1
+      GROUP BY f.id;
+      `,
+      values: [category]
+    }
+    const {rows: figurines} = await client.query(query)
+    //console.log(figurines)
+    return figurines
+  },
+  
+  getOneFigurine: async (id) => {
+    const {rows: figurine} = await client.query('SELECT * FROM figurine WHERE id = $1;', [id])
+    console.log(figurine)
+    return figurine[0]
+  },
+
+  getOneFigurineWithStats: async (id) => {
+    const query = {
+      text: `
+      SELECT f.*, ROUND(AVG(r.note)) AS note, COUNT(r.id) AS reviews
+      FROM figurine AS f
+      LEFT JOIN review AS r ON r.figurine_id = f.id
+      WHERE f.id = $1
+      GROUP BY f.id;
+      `,
+      values: [id]
+    }
+    const {rows: figurine} = await client.query(query)
+    console.log(figurine)
+    return figurine[0]
+  },
+
+  getReviewByFigurine: async (id) => {
+    const query = {
+      text: `SELECT * FROM review WHERE figurine_id = $1;`,
+      values: [id]
+    }
+    
+    const {rows: reviews} = await client.query(query)
+    return reviews
+  },
+
+  getCategoryStats: async () => {
+    const query = {
+      text: `
+      SELECT category AS name, COUNT(id) AS qty
+      FROM figurine
+      GROUP BY category
+      ORDER BY name ASC;
+      `,
+    }
+    const {rows: categories} = await client.query(query)
+    console.log(categories)
+    return categories
+  }
+};
+```
+```js
+// mainController.js
+const mainController = {
+
+  homePage: async (req, res) => {
+    try {
+      const categories = await dataMapper.getCategoryStats()
+      const figurines = await dataMapper.getAllFigurinesWithNote()
+      res.render('home', {figurines, categories});
+    }catch(error) {
+      console.log(error)
+      res.status(500).send(error);
+    }
+  },
+
+  articlePage: async (req, res) => {
+    
+    try {
+      const categories = await dataMapper.getCategoryStats()
+      const figurine = await dataMapper.getOneFigurineWithStats(req.params.id)
+      const reviews = await dataMapper.getReviewByFigurine(req.params.id)
+
+      res.render('article', {figurine, categories, reviews});
+    }catch(error) {
+      console.log(error)
+      res.status(500).send(error);
+    }
+  },
+
+  categoryPage: async (req, res) => {
+    try {
+      const categories = await dataMapper.getCategoryStats()
+      const figurines = await dataMapper.getFigurinesByCategoryWithNote(req.params.category)
+
+      res.render('home', {figurines, categories});
+    }catch(error) {
+      console.log(error)
+      res.status(500).send(error);
+    }
+  }
+
+};
+```
+
+```html
+<!-- home.ejs -->
+<small class="text-muted">
+  <%- ['&#9733;','&#9733;','&#9733;','&#9733;','&#9733;','&#9734;','&#9734;','&#9734;','&#9734;','&#9734;'].slice(5 - figurine.note, 10 - figurine.note).join('') %>
+</small>
+```
+
+```html
+<!-- article.ejs -->
+<p class="card-text"><%= figurine.reviews %>
+Note moyenne : <%- ['&#9733;','&#9733;','&#9733;','&#9733;','&#9733;','&#9734;','&#9734;','&#9734;','&#9734;','&#9734;'].slice(5 - figurine.note, 10 - figurine.note).join('') %>
+<br>
+```

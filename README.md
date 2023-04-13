@@ -178,3 +178,5 @@ Chaque lien doit envoyer vers une page qui ne liste que les figurines de la cat�
 ## Bonus DE LA MORT : Les notes
 
 Trouver un moyen de calculer et d'afficher la note globale de chaque figurine à partir des notes des reviews associés.
+★ (étoile pleine) : U+2605
+☆ (étoile vide) : U+2606
